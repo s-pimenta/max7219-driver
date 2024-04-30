@@ -1,5 +1,7 @@
 # Maxim MAX7219 8-Digit LED Display Driver for Arduino
 
+![](MAX7219-CNG-CWG.jpg)
+
 I made this display driver for 2 reasons: 
 - I not found a proper good driver for interfacing with this chip driver on Arduino
 - To practice my C programming
