@@ -1,18 +1,3 @@
-/* No-decode mode
-* LED Segments:         A
-*                     ----
-*                   F|    |B
-*                    |  G |
-*                     ----
-*                   E|    |C
-*                    |    |
-*                     ----  o DP
-*                       D
-*   Register bits:
-*      bit:  7  6  5  4  3  2  1  0
-*           DP  A  B  C  D  E  F  G
-*/
-
 #include <SPI.h>
 
 #define SCK_PIN 13   //Clock signal  [SCK (Serial Clock)] -> [CLK] Pin (13) on MAX719
@@ -42,8 +27,8 @@ D7 | D6 | D5 | D4 | D3 | D2 | D1 | D0 |
  1 |  1 |  1 |  1 |  1 |  1 |  1 |  1 | 0b11111111 -> DECODE_MODE_ALL
  0 |  0 |  1 |  1 |  0 |  0 |  1 |  0 | 0b00110010 -> Decode Mode on digit: 2, 5 and 6
 */
-#define DECODE_MODE_NONE 0b00000000
-#define DECODE_MODE_ALL 0b11111111
+#define DECODE_MODE_DIGITS_NONE 0b00000000
+#define DECODE_MODE_ALL_DIGITS 0b11111111
  
 //Code B Font (BCD format)
 #define CHAR_0 0x00    // 0 (digit zero)
@@ -109,233 +94,176 @@ the DISPLAY_TEST turns on all digits, but does not override the previous SCAN_LI
 #define DISPLAY_TEST_ON 0x01 //(Display Test Mode)
 #define DISPLAY_TEST_OFF 0x00 //(Normal Operation)
 
+//------------------------------------------------
+
 void setup() {
-  max7219Setup(); //initializes the max7219 driver
 
-  delay(3000);
+  max7219_Setup(SCAN_LIMIT_6, INTENSITY_1); //initializes the max7219 driver
 
-  sendData(SCAN_LIMIT, SCAN_LIMIT_6);
-  sendData(INTENSITY, INTENSITY_1);
- 
-  //sendData(DECODE_MODE, 0xFC); // 1-6
-  delay(3000);
-  sendData(SHUTDOWN_MODE, SHUTDOWN_MODE_OFF);
-  delay(3000);
-  sendData(DISPLAY_TEST, DISPLAY_TEST_ON);
-  delay(3000);
-  sendData(DISPLAY_TEST, DISPLAY_TEST_OFF);
-
-  delay(3000);
-
-  sendData(DECODE_MODE, DECODE_MODE_ALL);
-  sendData(DIGIT_0, CHAR_1);
-  delay(3000);
-  sendData(DIGIT_5, CHAR_6);
-  delay(3000);
-  sendData(DIGIT_1, CHAR_2);
-  delay(3000);
-  sendData(DIGIT_4, CHAR_5);
-  delay(3000);
-  sendData(DIGIT_2, CHAR_3);
-  delay(3000);
-  sendData(DIGIT_3, CHAR_4);
+  delay(2500);
 }
+
+//------------------------------------------------
 
 void loop() {
-  setDisplayIntensity(INTENSITY_2);
-  delay(100);
-  setDisplayIntensity(INTENSITY_3);
-  delay(100);
-  setDisplayIntensity(INTENSITY_4);
-  delay(100);
-  setDisplayIntensity(INTENSITY_5);
-  delay(100);
-  setDisplayIntensity(INTENSITY_6);
-  delay(100);
-  setDisplayIntensity(INTENSITY_7);
-  delay(100);
-  setDisplayIntensity(INTENSITY_8);
-  delay(100);
-  setDisplayIntensity(INTENSITY_9);
-  delay(100);
-  setDisplayIntensity(INTENSITY_10);
-  delay(100);
-  setDisplayIntensity(INTENSITY_11);
-  delay(100);
-  setDisplayIntensity(INTENSITY_12);
-  delay(100);
-  setDisplayIntensity(INTENSITY_13);
-  delay(100);
-  setDisplayIntensity(INTENSITY_14);
-  delay(100);
-  setDisplayIntensity(INTENSITY_15);
-  delay(100);
-  setDisplayIntensity(INTENSITY_16);
-  delay(100);
-  setDisplayIntensity(INTENSITY_15);
-  delay(100);
-  setDisplayIntensity(INTENSITY_14);
-  delay(100);
-  setDisplayIntensity(INTENSITY_13);
-  delay(100);
-  setDisplayIntensity(INTENSITY_12);
-  delay(100);
-  setDisplayIntensity(INTENSITY_11);
-  delay(100);
-  setDisplayIntensity(INTENSITY_9);
-  delay(100);
-  setDisplayIntensity(INTENSITY_8);
-  delay(100);
-  setDisplayIntensity(INTENSITY_7);
-  delay(100);
-  setDisplayIntensity(INTENSITY_6);
-  delay(100);
-  setDisplayIntensity(INTENSITY_5);
-  delay(100);
-  setDisplayIntensity(INTENSITY_4);
-  delay(100);
-  setDisplayIntensity(INTENSITY_3);
-  delay(100);
-  setDisplayIntensity(INTENSITY_2);
-  delay(100);
-  setDisplayIntensity(INTENSITY_1);
-  delay(100);
-    
+  clock_loop();
 }
 
+//------------------------------------------------
+
 // max7219 initialization setup
-void max7219Setup() {
-  pinMode(CS_PIN, OUTPUT);  // Sets the CS Pin to output
+void max7219_Setup(byte scanLimit, byte intensity) {
+  //pinMode(CS_PIN, OUTPUT);  // Sets the CS Pin to output
+  DDRB = 0x04; // Sets the CS Pin to output
 
   SPI.begin();
-  SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
+  SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0)); //Setups the SPI settings
 
-  digitalWrite(CS_PIN, HIGH);  // Sets the CS Pin to HIGH
+  max7219_SendData(DISPLAY_TEST, DISPLAY_TEST_OFF); //clears the Display Test
+  max7219_shutdown(SHUTDOWN_MODE_ON); //ensures the display is off
+  
+  max7219_setScanLimit(scanLimit); //sets the display size (digits)
+  max7219_setDisplayIntensity(intensity); //sets the display brightness
+  
+  max7219_DecodeMode(DECODE_MODE_DIGITS_NONE); //sets by default any digit on no-decode-mode
+  max7219_Clear(); //Clears the screen NOTE: The clear needs to be after the Decode Mode change FIX THIS
+  max7219_shutdown(SHUTDOWN_MODE_OFF);
 
-  sendData(DISPLAY_TEST, DISPLAY_TEST_OFF); //clears the Display Test
-  sendData(SHUTDOWN_MODE, SHUTDOWN_MODE_ON); //ensures the display is off
+}
 
-  max7219Clear(); //Clears the screen
+void max7219_DecodeMode(uint8_t digits) {
+  max7219_SendData(DECODE_MODE, digits);
+}
+
+/* Sends character to a determinated position (0-7) in Decode-Mode
+   (Numbers are in BCD encoding)
+
+   Available characters
+   CHAR_0 (digit zero)
+   CHAR_1 (digit one)
+   CHAR_2 (digit two)
+   CHAR_3 (digit three)
+   CHAR_4 (digit four)
+   CHAR_5 (digit five)
+   CHAR_6 (digit six)
+   CHAR_7 (digit seven)
+   CHAR_8 (digit eight)
+   CHAR_9 (digit nine)
+   CHAR_DASH (char "-")
+   CHAR_E (letter "E")
+   CHAR_H (letter "H")
+   CHAR_L (letter "L")
+   CHAR_P (letter "P")
+   CHAR_BLANK (blank space " ") */
+  
+  // TODO: when this command is sent automaticaly set that digit position on Decode-Mode
+void max7219_DecodeMode_SendChar(uint8_t digit_position, uint8_t character) {
+  if (digit_position <= 7) { //checks if the sent digit_position is within bounds
+    if (character <= 15) { //checks if the sent character is within bounds
+      max7219_SendData(digit_position, character); //sends the charcter to the desired position
+    }
+  }
+}
+
+/* Sends character to a determinated position (0-7) in No-Decode-Mode
+   No-decode mode
+*  LED Segments:        A
+*                     ----
+*                   F|    |B
+*                    |  G |
+*                     ----
+*                   E|    |C
+*                    |  D |
+*                     ----  o DP
+*   Register bits:
+*      bit:  7  6  5  4  3  2  1  0
+*           DP  A  B  C  D  E  F  G */
+void max7219_NoDecodeMode_SendChar(uint8_t digit_position, uint8_t character) {
+
 }
 
 //clears the digits regiters
-void max7219Clear() {
-  sendData(DECODE_MODE, 0xFF); //all digits
-  sendData(DIGIT_0, CHAR_BLANK);
-  sendData(DIGIT_1, CHAR_BLANK);
-  sendData(DIGIT_2, CHAR_BLANK);
-  sendData(DIGIT_3, CHAR_BLANK);
-  sendData(DIGIT_4, CHAR_BLANK);
-  sendData(DIGIT_5, CHAR_BLANK);
-  sendData(DIGIT_6, CHAR_BLANK);
-  sendData(DIGIT_7, CHAR_BLANK);
+void max7219_Clear() {
+  max7219_SendData(DECODE_MODE, 0xFF); //all digits
+
+  for (uint8_t digit = 1; digit <= 8; digit++) {
+    max7219_SendData(digit, CHAR_BLANK);
+  }
+  // max7219_SendData(DIGIT_0, CHAR_BLANK);
+  // max7219_SendData(DIGIT_1, CHAR_BLANK);
+  // max7219_SendData(DIGIT_2, CHAR_BLANK);
+  // max7219_SendData(DIGIT_3, CHAR_BLANK);
+  // max7219_SendData(DIGIT_4, CHAR_BLANK);
+  // max7219_SendData(DIGIT_5, CHAR_BLANK);
+  // max7219_SendData(DIGIT_6, CHAR_BLANK);
+  // max7219_SendData(DIGIT_7, CHAR_BLANK);
 }
 
-void sendData (byte address, byte data) {
-  digitalWrite(CS_PIN, LOW);  // Sets the CS Pin to LOW
+void max7219_SendData (uint8_t address, uint8_t data) {
+  //digitalWrite(CS_PIN, LOW);  // Sets the CS Pin to LOW
+  PORTB &= ~(1 << 2); // Sets the PB2 LOW (CS Pin)
   SPI.transfer(address);
   SPI.transfer(data);
-  digitalWrite(CS_PIN, HIGH);  // Sets the CS Pin to HIGH
+  PORTB |= (1 << 2); // Sets the PB2 HIGH (CS Pin)
+  //digitalWrite(CS_PIN, HIGH);  // Sets the CS Pin to HIGH
 }
 
-void shutdown (bool turnOff) {
-  if (turnOff == true) {
-    sendData(SHUTDOWN_MODE, SHUTDOWN_MODE_ON);
+void max7219_shutdown (bool turnOff) {
+  if (turnOff == false) {
+    max7219_SendData(SHUTDOWN_MODE, SHUTDOWN_MODE_ON);
   }
-  else { //false
-    sendData(SHUTDOWN_MODE, SHUTDOWN_MODE_OFF);
+  else { //true
+    max7219_SendData(SHUTDOWN_MODE, SHUTDOWN_MODE_OFF);
   }
 }
 
-void displayTest (bool turnOn) {
+void max7219_displayTest (bool turnOn) {
   if (turnOn == true) {
-    sendData(DISPLAY_TEST, DISPLAY_TEST_ON);
+    max7219_SendData(DISPLAY_TEST, DISPLAY_TEST_ON);
   }
   else { //false
-    sendData(DISPLAY_TEST, DISPLAY_TEST_OFF);
+    max7219_SendData(DISPLAY_TEST, DISPLAY_TEST_OFF);
   }
 }
 
 // Digits displayed = 1-8
-void setScanLimit (byte numDigits) {
-  switch (numDigits) {
-    case 1:
-      sendData (SCAN_LIMIT, SCAN_LIMIT_1);
-      break;
-    case 2:
-      sendData (SCAN_LIMIT, SCAN_LIMIT_2);
-      break;
-    case 3:
-      sendData (SCAN_LIMIT, SCAN_LIMIT_3);
-      break;
-    case 4:
-      sendData (SCAN_LIMIT, SCAN_LIMIT_4);
-      break;
-    case 5:
-      sendData (SCAN_LIMIT, SCAN_LIMIT_5);
-      break;
-    case 6:
-      sendData (SCAN_LIMIT, SCAN_LIMIT_6);
-      break;
-    case 7:
-      sendData (SCAN_LIMIT, SCAN_LIMIT_7);
-      break;
-    case 8:
-      sendData (SCAN_LIMIT, SCAN_LIMIT_8);
-      break;
+void max7219_setScanLimit (uint8_t numDigits) {
+  if (numDigits >= 1 && numDigits <= 8){
+    max7219_SendData(SCAN_LIMIT, numDigits);
   }
+
+  // switch (numDigits) {
+  //   case 1:
+  //     max7219_SendData(SCAN_LIMIT, SCAN_LIMIT_1);
+  //     break;
+  //   case 2:
+  //     max7219_SendData(SCAN_LIMIT, SCAN_LIMIT_2);
+  //     break;
+  //   case 3:
+  //     max7219_SendData(SCAN_LIMIT, SCAN_LIMIT_3);
+  //     break;
+  //   case 4:
+  //     max7219_SendData(SCAN_LIMIT, SCAN_LIMIT_4);
+  //     break;
+  //   case 5:
+  //     max7219_SendData(SCAN_LIMIT, SCAN_LIMIT_5);
+  //     break;
+  //   case 6:
+  //     max7219_SendData(SCAN_LIMIT, SCAN_LIMIT_6);
+  //     break;
+  //   case 7:
+  //     max7219_SendData(SCAN_LIMIT, SCAN_LIMIT_7);
+  //     break;
+  //   case 8:
+  //     max7219_SendData(SCAN_LIMIT, SCAN_LIMIT_8);
+  //     break;
+  // }
 }
 
-// Intensity levels = (min)1 - 16(max)
-void setDisplayIntensity (byte intensity) {
-  switch (intensity) {
-    case 1:
-      sendData (INTENSITY, INTENSITY_1);
-      break;
-    case 2:
-      sendData (INTENSITY, INTENSITY_2);
-      break;
-    case 3:
-      sendData (INTENSITY, INTENSITY_3);
-      break;
-    case 4:
-      sendData (INTENSITY, INTENSITY_4);
-      break;
-    case 5:
-      sendData (INTENSITY, INTENSITY_5);
-      break;
-    case 6:
-      sendData (INTENSITY, INTENSITY_6);
-      break;
-    case 7:
-      sendData (INTENSITY, INTENSITY_7);
-      break;
-    case 8:
-      sendData (INTENSITY, INTENSITY_8);
-      break;
-    case 9:
-      sendData (INTENSITY, INTENSITY_9);
-      break;
-    case 10:
-      sendData (INTENSITY, INTENSITY_10);
-      break;
-    case 11:
-      sendData (INTENSITY, INTENSITY_11);
-      break;
-    case 12:
-      sendData (INTENSITY, INTENSITY_12);
-      break;
-    case 13:
-      sendData (INTENSITY, INTENSITY_13);
-      break;
-    case 14:
-      sendData (INTENSITY, INTENSITY_14);
-      break;
-    case 15:
-      sendData (INTENSITY, INTENSITY_15);
-      break;
-    case 16:
-      sendData (INTENSITY, INTENSITY_16);
-      break;
+// Intensity levels = (min)0 - 15(max)
+void max7219_setDisplayIntensity (uint8_t intensity) {
+  
+  if (intensity >= 0 && intensity <= 15) {
+    max7219_SendData(INTENSITY, intensity);
   }
 }
