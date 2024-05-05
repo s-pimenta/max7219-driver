@@ -10,7 +10,7 @@ This driver uses the proper `SPI` from ATMEGA chip, NOT the emulated version usi
 
 This driver was tested on ATMEGA328P (Arduino Uno)
 
-Dependecies:
+Dependencies:
 - <Arduino.h>
 - <SPI.h>
 
